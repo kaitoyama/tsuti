@@ -112,6 +112,8 @@ forms: [{label: 別紙１―１, change: 内容変更有}, …]
 
 ## 3. 操作
 
+### 階層的な通知（介護・診療報酬）
+
 ```bash
 python pdf2tsuchi.py  原本.pdf -o 原本.tsuchi.txt --number 老発0315第1号 --date 2024-03-15 --version R6.3.15   # 原本PDF → 通知テキスト（初回だけ）
 python pdf2shinkyu.py 改正.pdf --pages 2-8 -o 改正.shinkyu.txt --number 老発0313第5号 --date 2026-03-13 \
@@ -122,6 +124,16 @@ python shinkyu.py diff   旧.tsuchi.txt 新.tsuchi.txt -o 改正.shinkyu.txt    
 python shinkyu.py render 改正.shinkyu.txt -o 新旧対照表.html                             # 対照表を出力
 python shinkyu.py lint   新.tsuchi.txt                                                  # 番号参照の点検
 ```
+
+### 事務連絡（Administrative Circulars）
+
+```bash
+python pdf2jimu.py 事務連絡.pdf -o 事務連絡.jimu.txt   # 事務連絡PDF → 簡易テキスト（初回の取り込み用）
+```
+
+**対応範囲**: MHLW 事務連絡（介護保険最新情報 Vol.NNNN形式など）  
+**取り込み内容**: 版メタデータ（種別・Vol・日付・発出課・件名）＋本文段落  
+**対応範囲外**: 階層的な番号体系の強制、新旧対照表の適用、参照の追従
 
 ### 繰下げに合わせた番号参照の追従（apply に組み込み済み）
 
@@ -219,9 +231,22 @@ python shinkyu.py apply R7.tsuchi.txt 部分改正_第２の１のみ.shinkyu.tx
 以下の文書種別は、現在のコアとは異なる構造を持つため、別のパーサーが必要です：
 
 - **Q&A・疑義解釈**：問答形式、独自の番号体系（問N、QN など）
-- **事務連絡**：通知よりも軽い構造、階層が浅い、または箇条書き中心
 - **告示・省令本文**：法令形式（条・項・号）→ [Lawtext](https://github.com/yamachig/Lawtext) を参照
 - **e-Gov API連携**、**国税庁HTML形式の通達**：別途アダプターが必要
+
+### 事務連絡（Administrative Circulars）への対応（Priority A-lite）
+
+**現状**: `pdf2jimu.py` により、MHLW 事務連絡（介護保険最新情報など）の**メタデータ取り込み＋本文段落抽出**に対応しました。
+
+整備状況：
+- ✅ J1–J3スタイル文書の取り込み（Vol・日付・発出課・件名・本文）
+- ✅ テストカバレッジ（`tests/test_jimu.py`）
+
+対応範囲：
+- **対応**：版メタデータ（種別・Vol・日付・発出課・件名）の抽出、本文段落のプレーンテキスト化
+- **対応範囲外**：階層的な番号体系の強制、新旧対照表の適用、`shinkyu apply`/`--partial`、参照の追従
+
+事務連絡は通知（局長通知・留意事項）よりも軽い構造であり、階層的な番号体系を前提とした`pdf2tsuchi.py`の`accept`ロジックや`x-stack`とは異なるアプローチを取ります。
 
 ### 診療報酬通知（Priority A'）への対応準備
 
@@ -255,9 +280,10 @@ python shinkyu.py apply R7.tsuchi.txt 部分改正_第２の１のみ.shinkyu.tx
 | `tsuchi.py` | 通知テキストの読み書き、ラベル（番号）の扱い |
 | `refs.py` | 番号参照の解析・解決・追従 |
 | `shinkyu.py` | `apply` / `diff` / `render` / `lint` |
-| `pdf2tsuchi.py` | 原本PDF → 通知テキスト（初回の取り込み用） |
+| `pdf2tsuchi.py` | 原本PDF → 通知テキスト（階層的な通知の初回取り込み用） |
 | `pdf2shinkyu.py` | 新旧対照表PDF → 改正テキスト（初回の取り込み用、傍線も読み取る） |
-| `tests/` | 往復テスト・参照追従テスト・傍線の一致度 |
+| `pdf2jimu.py` | 事務連絡PDF → 簡易テキスト（メタデータ＋本文段落の初回取り込み用） |
+| `tests/` | 往復テスト・参照追従テスト・傍線の一致度・事務連絡取り込みテスト |
 | `examples/` | 架空の通知による最小の例 |
 
 ## 参考
