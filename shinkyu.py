@@ -159,7 +159,7 @@ def cmd_apply(a):
     pmeta, proot = load(a.patch, marks=True)
     errs = []
     want = pmeta.get("base_version")
-    if want and bmeta.get("version") != want and not a.partial:
+    if want and bmeta.get("version") != want:
         msg = f"版が違う: 原本は {bmeta.get('version')}、この改正は {want} を前提としている"
         if not a.force:
             sys.exit("エラー: " + msg + "（--force で差異の一覧を出す）")

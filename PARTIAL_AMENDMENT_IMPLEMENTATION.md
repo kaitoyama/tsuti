@@ -17,8 +17,8 @@
   - 末尾の検証（`strict`）を無効化
 
 #### `cmd_apply` 関数
-- `--partial` フラグ使用時、`base_version` の検証をスキップ
 - `partial` パラメータを `apply_children` に渡す
+- `base_version` の検証は `--partial` の有無に関わらず実行（`--force` で回避可能）
 
 ### 2. CLI
 
@@ -34,7 +34,8 @@ python shinkyu.py apply BASE.tsuchi.txt PATCH.shinkyu.txt -o NEW.tsuchi.txt --pa
 | 項目 | 通常モード | 部分改正モード (`--partial`) |
 |------|-----------|---------------------------|
 | 対照表に出てこない項目 | エラー | 原本のまま保持 |
-| `base_version` 検証 | 必須 | スキップ |
+| `base_version` 検証 | 必須 | **必須**（`--force` で回避可能） |
+| 全項目出現の検証 | 必須 | スキップ |
 | 項目の順序 | 厳密に一致必須 | 柔軟に探索 |
 | 参照追従 | 有効 | **有効** ✓ |
 
