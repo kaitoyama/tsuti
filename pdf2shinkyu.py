@@ -36,14 +36,19 @@ class Col:
     def add(self, pno, x, top, t, ul):
         y = (pno, round(top))
         if self.stage == "head":
-            if re.search(r"(一部改正|老\s*発|令\s*和)", t):
+            if re.search(r"(一部改正|老\s*発|保医発|令\s*和)", t):
                 self.history.append(norm(t)); return
-            if not t.startswith("「"):
-                return
-            self.stage = "pre"
-            self.pre = Entry(y, "前文", "", 0); self.pre.ul = []
-            self.entries.append(self.pre)
-            self.min_x = x - 10
+            # 前文がある場合（「で始まる）または、直接本文に入る場合（第で始まる）
+            if t.startswith("「"):
+                self.stage = "pre"
+                self.pre = Entry(y, "前文", "", 0); self.pre.ul = []
+                self.entries.append(self.pre)
+                self.min_x = x - 10
+            elif re.match(r"^第[０-９0-9]", t):
+                # 前文なしで本文から始まる新旧対照表
+                self.stage = "body"
+                self.min_x = x - 10
+            return
         if self.stage == "pre":
             if norm(t) == "記":
                 self.stage = "body"; return

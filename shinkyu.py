@@ -102,6 +102,9 @@ def check_numbering(nodes, path, errs):
     """同じ種類の番号が 1,2,3… と連続しているか（繰下げ漏れの検出）"""
     by = {}
     for n in nodes:
+        # 範囲表記（「～」「・」を含む）はスキップ
+        if re.search("[～・]", n.label):
+            continue
         k, v = kind_num(n.label)
         if k in ("num", "maru", "paren", "kana", "dai"):
             by.setdefault(k, []).append((v, n.label))
