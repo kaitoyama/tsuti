@@ -57,6 +57,23 @@ class Col:
                 self.pre.paras.append(""); self.pre.ul.append([])
             self.pre.paras[-1] += t; self.pre.ul[-1] += ul
             return
+        # 結合ラベル（第３・第４など）を検出（空白補完の前にチェック）
+        # 例: "第３・第４ （略）" → label="第３・第４", text="（略）"
+        combined_match = re.match(r"^(第[０-９0-9]+(?:・第?[０-９0-9]+)+)\s+(.+)$", t)
+        if combined_match:
+            # 結合ラベルとして扱う（後でsplit_combined_labelsで分割される）
+            label = combined_match.group(1)
+            text = combined_match.group(2)
+            kind = kind_num(re.split("[～・]", label)[0])[0]
+            if kind in self.kinds:
+                del self.kinds[self.kinds.index(kind) + 1:]
+            else:
+                self.kinds.append(kind)
+            depth = max(0, len(self.kinds) - 1)
+            e = Entry(y, label, text, depth, ul=ul)
+            self.entries.append(e)
+            return
+        
         t2 = re.sub(r"^(第[０-９0-9]+)(?![号条項の０-９0-9～])(?=\S)", r"\1 ", t)   # 「第６介護予防…」の空白欠落
         m = LABEL_RE.match(t2)
         if m:
@@ -167,6 +184,43 @@ def parse(pdf_path, pages):
     return left, right, forms
 
 
+# ------------------------------------------------------------------ 結合ラベルの分割
+def split_combined_labels(entries):
+    """結合ラベル（第３・第４など）を個別エントリに分割
+    
+    「第３・第４（略）」のような結合ラベルを個別の「第３（略）」「第４（略）」に分割。
+    これにより、apply時に基底文書の個別セクションとマッチできるようになる。
+    """
+    result = []
+    for e in entries:
+        # ・を含むラベルで、かつ（略）の場合のみ分割
+        if e.label and "・" in e.label and e.text.strip() == "（略）":
+            # ・で分割して個別ラベルを抽出
+            parts = e.label.split("・")
+            labels = []
+            for i, part in enumerate(parts):
+                part = part.strip()
+                # 第N・第M の形式：両方に「第」がある
+                if part.startswith("第"):
+                    labels.append(part)
+                # 第N・M の形式：2つ目以降に「第」を補完
+                elif i > 0 and parts[0].strip().startswith("第"):
+                    labels.append("第" + part)
+                else:
+                    labels.append(part)
+            
+            if len(labels) > 1:
+                # 複数のラベルに分割
+                for lab in labels:
+                    split_e = Entry(e.y, lab, e.text, e.depth, e.place, e.ul[0] if e.ul else None)
+                    split_e.paras = list(e.paras)
+                    split_e.ul = list(e.ul)
+                    result.append(split_e)
+                continue
+        result.append(e)
+    return result
+
+
 # ------------------------------------------------------------------ 左右の突合 → 差分行
 def is_skip(e):
     return e.label and (e.text.strip() == "（略）" or (not e.text.strip() and re.search("[～・]", e.label)))
@@ -245,6 +299,9 @@ def main():
     x = ap.parse_args()
     a, b = map(int, x.pages.split("-"))
     L, R, forms = parse(x.pdf, list(range(a, b + 1)))
+    # 結合ラベル（第３・第４など）を分割
+    L.entries = split_combined_labels(L.entries)
+    R.entries = split_combined_labels(R.entries)
     out, warn = build(L, R)
     import yaml
     meta = {
