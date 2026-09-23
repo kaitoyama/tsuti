@@ -200,8 +200,10 @@ def split_combined_labels(entries):
             parts = [p.strip() for p in e.label.split("・")]
             # 全パーツが「第」で始まる場合のみ分割
             if all(p.startswith("第") for p in parts) and len(parts) > 1:
-                for lab in parts:
-                    split_e = Entry(e.y, lab, e.text, e.depth, e.place, e.ul[0] if e.ul else None)
+                for i, lab in enumerate(parts):
+                    # Adjust y-coordinate slightly for each split entry to ensure unique positions for pairing
+                    adjusted_y = (e.y[0], e.y[1] + i * 0.1)
+                    split_e = Entry(adjusted_y, lab, e.text, e.depth, e.place, e.ul[0] if e.ul else None)
                     split_e.paras = list(e.paras)
                     split_e.ul = list(e.ul)
                     result.append(split_e)
