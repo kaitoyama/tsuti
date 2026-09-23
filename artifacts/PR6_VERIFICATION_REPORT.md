@@ -74,6 +74,44 @@ Found numbered children: ['１', '２', '３', '４', '５', '６', '７', '８'
 
 **Evidence:** Before PR #6, section ４ spans many pages, causing ５ and ６ (appearing on page 16) to be dropped due to stack collision at page boundaries. The fix in PR #6 adds protection for shallow hierarchy levels (第N, 数字) when processing deep hierarchy labels (丸数字, etc.), plus a fallback search to find the correct parent when the stack is disrupted.
 
+### Additional Architecture-Specific Acceptance Check
+
+**Requirement:** Protection mechanism must not cause erroneous ① to be added under 第２ as a "first occurrence" due to same x-coordinate collision.
+
+**Verification:**
+```
+=== ARCHITECTURE-SPECIFIED ACCEPTANCE CHECK ===
+
+Verification: 第２ direct children must be only 数字 (１〜９), no 丸数字 (①)
+
+Total direct children under 第２: 9
+
+Direct children grouped by kind:
+  num: ['１', '２', '３', '４', '５', '６', '７', '８', '９']
+
+数字 (num) children: ['１', '２', '３', '４', '５', '６', '７', '８', '９']
+丸数字 (maru) children: (none)
+
+============================================================
+VALIDATION RESULTS:
+============================================================
+✓ PASS: 第２直下の数字は１〜９が揃っている
+✓ PASS: 第２直下に丸数字（①など）は存在しない
+✓ PASS: 第２の５と第２の６が存在する（多ページセクション保存成功）
+✓ PASS: 第２直下に数字以外の種類は存在しない
+
+保護メカニズムは正常動作:
+- 第２は保護されている
+- 同x座標の①は第２直下に追加されていない
+- 第２の直下は正しく１〜９のみ
+```
+
+**Result: ✅ PASS**
+
+- ✅ 第２直下の子は正しく数字（１〜９）のみ
+- ✅ 丸数字（①など）は第２直下に存在しない
+- ✅ 保護メカニズムが正常動作（同x座標の①が誤って第２直下に追加されていない）
+
 ---
 
 ## Acceptance Criterion 2: T1→T2 Partial Amendment Succeeds

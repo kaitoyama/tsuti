@@ -32,6 +32,13 @@ T1 INGEST (pdf2tsuchi):
   - Sections under 第２: １, ２, ３, ４, ５, ６, ７, ８, ９
   - ✓ 第２の５ present
   - ✓ 第２の６ present
+  
+ARCHITECTURE CHECK (protection mechanism):
+  - Total direct children under 第２: 9
+  - Direct children by kind: num only (no maru)
+  - ✓ 第２直下は正しく１〜９のみ（数字）
+  - ✓ 第２直下に丸数字（①など）は存在しない
+  - ✓ 保護メカニズム正常動作（同x座標の①が誤追加されていない）
 
 T2 EXTRACTION (pdf2shinkyu --pages 3-3):
   - Amendment extracted: 保医発0630第3号 (2025-06-30)
