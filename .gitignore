@@ -1,0 +1,7 @@
+data/
+tests/out/
+__pycache__/
+*.pyc
+examples/sample_v2.tsuchi.txt
+examples/sample_改正_完成版.shinkyu.txt
+examples/sample_新旧対照表.html
