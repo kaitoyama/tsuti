@@ -141,11 +141,52 @@ All existing tests pass:
      ④　旧規定である。       # Correct indent (5 spaces = depth 2)
 ```
 
+### Issue #4: Combined-Label Splitting
+
+**Problem:** PDF #7 has `第３・第４ （略）` as a combined label. When ingested as-is, `apply --partial` fails because base documents have separate `第３` and `第４` sections.
+
+**Solution:** Split combined labels into individual entries during ingest.
+
+**Scope - ONLY:**
+- Pattern: `第N・第M （略）` or `第N・第M・第K... （略）`
+- **Required:** ALL parts must start with `第`
+- **Required:** Text must be `（略）`
+
+```python
+# Detection (line ~60-76)
+combined_match = re.match(r"^(第[０-９0-9]+(?:・第[０-９0-9]+)+)\s+(.+)$", t)
+
+# Splitting (lines ~189-209)
+def split_combined_labels(entries):
+    if e.label and "・" in e.label and e.text.strip() == "（略）":
+        parts = [p.strip() for p in e.label.split("・")]
+        # ONLY if ALL parts start with 第
+        if all(p.startswith("第") for p in parts) and len(parts) > 1:
+            # Split into separate entries
+```
+
+**Examples:**
+
+IN SCOPE (split):
+- `第３・第４ （略）` → `第３ （略）`, `第４ （略）`
+- `第１・第２・第３ （略）` → `第１ （略）`, `第２ （略）`, `第３ （略）`
+
+OUT OF SCOPE (NOT split):
+- `第３・４ （略）` - second part missing `第`
+- `１・２ （略）` - no `第` prefix
+- `第３・第４ 内容` - text not `（略）`
+
+**Impact:**
+- Combined labels split before matching during apply
+- Individual sections can now match with base document
+- `apply --partial` succeeds with real PDF #7
+
 ## Files Modified
 
-- `pdf2shinkyu.py` - Core extraction logic (3 focused fixes)
-- `tests/test_pdf2shinkyu_quality.py` - New unit tests
-- `tests/test_quality_integration.py` - New integration test
+- `pdf2shinkyu.py` - Core extraction logic (4 focused fixes)
+- `tests/test_pdf2shinkyu_quality.py` - Unit tests (issues #1-3)
+- `tests/test_combined_label_split.py` - Unit tests (issue #4)
+- `tests/test_quality_integration.py` - Integration test
 - `tests/fixtures/test_quality_issues.txt` - Test fixture
 - `PDF2SHINKYU_QUALITY_FIXES.md` - This documentation
 
