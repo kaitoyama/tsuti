@@ -117,6 +117,7 @@ python pdf2tsuchi.py  原本.pdf -o 原本.tsuchi.txt --number 老発0315第1号
 python pdf2shinkyu.py 改正.pdf --pages 2-8 -o 改正.shinkyu.txt --number 老発0313第5号 --date 2026-03-13 \
                       --base-version R7.3.13 --new-version R8.3.13                                        # 既存の新旧対照表PDF → 改正テキスト（初回だけ）
 python shinkyu.py apply  旧.tsuchi.txt 改正.shinkyu.txt -o 新.tsuchi.txt --patch-out 改正_完成版.shinkyu.txt   # 改正を反映（参照の追従つき）
+python shinkyu.py apply  旧.tsuchi.txt 部分改正.shinkyu.txt -o 新.tsuchi.txt --partial   # 部分改正を反映（対照表に出てこないセクションは保持）
 python shinkyu.py diff   旧.tsuchi.txt 新.tsuchi.txt -o 改正.shinkyu.txt                 # 全文を直接直した場合 → 改正テキスト
 python shinkyu.py render 改正.shinkyu.txt -o 新旧対照表.html                             # 対照表を出力
 python shinkyu.py lint   新.tsuchi.txt                                                  # 番号参照の点検
@@ -157,8 +158,34 @@ python shinkyu.py apply R6.tsuchi.txt 中間改正.shinkyu.txt -o R7.tsuchi.txt 
 
 1. `base_version` が原本の版と一致すること
 2. 見出し・（略）の番号・現行の文が、原本と一字一句一致すること（空白の違いは無視）
-3. 表示されている親の子が、すべて対照表に出てくること
+3. 表示されている親の子が、すべて対照表に出てくること（`--partial` 指定時はこの検証をスキップ）
 4. 反映後の番号が連続していること（繰下げ漏れの検出）。原本にもともとある乱れは参考として表示する
+
+### 部分改正モード（`--partial`）
+
+実際の厚生労働省の保医発等のPDFでは、文書全体ではなく**特定のセクションだけ**の新旧対照表が公表されることがあります（例：「第２の６」だけを改正）。このような部分的な改正に対応するため、`--partial` フラグが用意されています。
+
+```bash
+python shinkyu.py apply 旧.tsuchi.txt 部分改正.shinkyu.txt -o 新.tsuchi.txt --partial
+```
+
+**通常モードとの違い：**
+
+- 対照表に**出てこないセクション**は、原本のまま保持されます
+- 「表示されている親の子がすべて対照表に出てくる」という検証が無効になります
+- `base_version` の検証は**引き続き有効**です（異なる版への適用を防ぐため）
+  - 版が違う場合は `--force` を併用してください
+
+**参照の追従：**
+
+部分改正モードでも、番号参照の自動追従は正常に動作します。例えば、対照表に出てこないセクションが改正されたセクションを参照している場合、その参照も自動的に更新されます。
+
+**使用例：**
+
+```bash
+# 第２のサービス１だけを改正する部分的な新旧対照表を適用
+python shinkyu.py apply R7.tsuchi.txt 部分改正_第２の１のみ.shinkyu.txt -o R8.tsuchi.txt --partial
+```
 
 ### render の傍線
 
