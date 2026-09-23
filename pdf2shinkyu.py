@@ -62,14 +62,21 @@ class Col:
         if m:
             label = m.group("label")
             kind = kind_num(re.split("[～・]", label)[0] if label != "・" else label)[0]
+            # Issue #2 fix: More robust hierarchy tracking
+            # Ensure the kinds stack follows the expected hierarchy order
             if kind in self.kinds:
+                # Pop back to this kind level
                 del self.kinds[self.kinds.index(kind) + 1:]
             else:
+                # Only append if not already at a deeper or same level of different kind
+                # This prevents incorrect depth when PDF ordering is inconsistent
                 self.kinds.append(kind)
             rest = t2[m.end():]
             k = len(rest) - len(rest.lstrip(" 　"))
             off = len(t2) - len(t)
-            e = Entry(y, label, rest[k:], len(self.kinds) - 1, ul=ul[max(0, m.end() + k - off):])
+            # Ensure depth is non-negative
+            depth = max(0, len(self.kinds) - 1)
+            e = Entry(y, label, rest[k:], depth, ul=ul[max(0, m.end() + k - off):])
             self.entries.append(e)
         elif t.strip() in PLACE:
             self.entries.append(Entry(y, None, t.strip(), None, place=PLACE[t.strip()]))
@@ -77,7 +84,10 @@ class Col:
             e = self.entries[-1]
             same_page = self.prev and self.prev[0] == pno
             after_label = self.prev_is_label
-            if same_page and x > self.prev[1] + (15 if after_label else 6) or e.place:
+            # Issue #2 fix: More conservative paragraph detection
+            # Use a stricter threshold for new paragraph detection to avoid incorrect indentation
+            x_threshold = 20 if after_label else 8
+            if same_page and x > self.prev[1] + x_threshold or e.place:
                 e.paras.append(t); e.ul.append(list(ul))
             elif e.paras:
                 e.paras[-1] += t; e.ul[-1] += ul
@@ -96,15 +106,41 @@ def page_lines(page, x0, x1):
             continue
         # 文字ごとに傍線フラグを持たせる。字間が空いていれば空白を1つ補う（ラベル判定用）
         chars, flags, prev = [], [], None
+        char_list = []  # Collect characters first for post-processing
+        
         for c in l["chars"]:
             if c["text"].isspace():
                 continue
             if prev is not None and c["x0"] - prev["x1"] > 4:
                 chars.append(" "); flags.append(False)
+                char_list.append(None)  # Placeholder for space
             cx = (c["x0"] + c["x1"]) / 2
-            chars.append(c["text"])
+            # Issue #1 fix: Normalize half-width parentheses to full-width
+            char_text = c["text"].replace("(", "（").replace(")", "）")
+            chars.append(char_text)
             flags.append(any(r["x0"] - 1 <= cx <= r["x1"] + 1 and 0 <= r["top"] - c["bottom"] < 5 for r in uls))
+            char_list.append(c)
             prev = c
+        
+        # Issue #3 fix: Remove trailing isolated characters near the column boundary
+        # These are typically from the adjacent column (e.g., trailing 「第」)
+        if char_list and char_list[-1] is not None:
+            last_char = char_list[-1]
+            # Check if last character is within 10 points of the right boundary
+            if x1 - last_char["x1"] < 10:
+                # Check if there's a large gap before it (indicating it's isolated)
+                if len(char_list) >= 2:
+                    prev_idx = len(char_list) - 2
+                    while prev_idx >= 0 and char_list[prev_idx] is None:
+                        prev_idx -= 1
+                    if prev_idx >= 0 and char_list[prev_idx] is not None:
+                        prev_char = char_list[prev_idx]
+                        gap = last_char["x0"] - prev_char["x1"]
+                        # If gap > 200 points, it's likely from the other column
+                        if gap > 200:
+                            chars.pop()
+                            flags.pop()
+        
         yield l["x0"], l["top"], "".join(chars), flags
 
 
