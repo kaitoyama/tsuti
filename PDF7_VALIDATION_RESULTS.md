@@ -77,7 +77,7 @@ The apply correctly:
 
 ### Issue #1: Half-width → Full-width Parentheses
 
-**Code change:** `pdf2shinkyu.py` line ~112
+**Code change:** `pdf2shinkyu.py` line ~119
 ```python
 char_text = c["text"].replace("(", "（").replace(")", "）")
 ```
@@ -85,6 +85,8 @@ char_text = c["text"].replace("(", "（").replace(")", "）")
 **Impact:**
 - All `（略）` markers use full-width parens
 - No manual correction needed for parenthesis style
+
+**Note:** Applied wholesale to all text. Intentional half-width parentheses (if any in tables) also converted. Not an issue for 保医発 新旧対照表 which use full-width Japanese punctuation.
 
 ### Issue #2: Hierarchy Depth
 
@@ -103,20 +105,28 @@ depth = max(0, len(self.kinds) - 1)
 
 ### Issue #3: Column Cropping Artifacts
 
-**Code change:** `pdf2shinkyu.py` lines ~117-132
+**Code change:** `pdf2shinkyu.py` lines ~126-141
+
+Gap-based detection algorithm:
 ```python
 # Remove trailing isolated characters near column boundary
 if char_list and char_list[-1] is not None:
     last_char = char_list[-1]
+    # Character within 10 points of boundary AND gap > 200 points
     if x1 - last_char["x1"] < 10:
-        # Check for large gap indicating it's from other column
         if gap > 200:
-            chars.pop()  # Remove spurious character
+            chars.pop()  # Remove spurious character from adjacent column
 ```
+
+**Algorithm:**
+1. Check if last character is near column boundary (< 10 pt)
+2. Check if large gap exists before it (> 200 pt)
+3. If both true, remove as spurious text from adjacent column
 
 **Impact:**
 - No more trailing 「第」 characters from adjacent column
 - No manual correction needed for column bleed
+- Legitimate text unaffected (no 200+ point gaps in normal flow)
 
 ## Test Coverage
 

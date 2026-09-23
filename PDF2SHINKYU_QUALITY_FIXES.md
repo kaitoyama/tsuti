@@ -10,7 +10,7 @@ This document describes three focused fixes to improve `pdf2shinkyu` quality for
 
 **Problem:** PDF extraction sometimes produced half-width `(略)` instead of the required full-width `（略）`.
 
-**Solution:** Added normalization in the `page_lines()` function (line ~109) to convert half-width parentheses to full-width during character extraction:
+**Solution:** Added normalization in the `page_lines()` function (line ~119) to convert half-width parentheses to full-width during character extraction:
 
 ```python
 # Issue #1 fix: Normalize half-width parentheses to full-width
@@ -21,6 +21,8 @@ char_text = c["text"].replace("(", "（").replace(")", "）")
 - All special markers `（略）`, `（新設）`, `（削る）` now consistently use full-width parentheses
 - Matches expected format in existing test fixtures
 - No manual correction needed for parenthesis style
+
+**Note:** This normalization is applied wholesale to all extracted text. If source PDFs contain intentional half-width parentheses (e.g., in tables or technical notation), those will also be converted to full-width. For 保医発 新旧対照表 documents, this is not an issue as the format consistently uses full-width Japanese punctuation.
 
 ### Issue #2: Hierarchy indent corrections
 
@@ -47,21 +49,34 @@ char_text = c["text"].replace("(", "（").replace(")", "）")
 
 ### Issue #3: Spurious 「第」 characters from column cropping
 
-**Problem:** Text from adjacent columns sometimes leaked into the extracted content, causing extra 「第」 characters to appear.
+**Problem:** Text from adjacent columns sometimes leaked into the extracted content, causing extra 「第」 characters to appear at line endings (e.g., "届出に関する手続き第").
 
-**Solution:** Added column boundary check in `page_lines()` (line ~103-105) to skip characters outside the crop bounds:
+**Solution:** Added gap-based detection in `page_lines()` (lines ~126-141) to remove isolated trailing characters:
 
 ```python
-# Issue #3 fix: Skip characters that are clearly from the other column
-# If a character's x position is outside the crop bounds, skip it
-if not (x0 <= c["x0"] < x1):
-    continue
+# Issue #3 fix: Remove trailing isolated characters near the column boundary
+# These are typically from the adjacent column (e.g., trailing 「第」)
+if char_list and char_list[-1] is not None:
+    last_char = char_list[-1]
+    # Check if last character is within 10 points of the right boundary
+    if x1 - last_char["x1"] < 10:
+        # Check if there's a large gap before it (indicating it's isolated)
+        gap = last_char["x0"] - prev_char["x1"]
+        # If gap > 200 points, it's likely from the other column
+        if gap > 200:
+            chars.pop()  # Remove the spurious character
 ```
 
+**Algorithm:**
+1. After extracting all characters in a line, check the last character
+2. If it's near the column boundary (< 10 points from edge) AND
+3. Has a large gap before it (> 200 points), then
+4. Remove it as spurious text from the adjacent column
+
 **Impact:**
-- Characters from the opposite column (left/right) are now filtered out
-- Cleaner extraction without spurious text
-- Fewer formatting artifacts from column layout
+- Isolated trailing characters from column bleed are removed
+- Cleaner extraction without spurious 「第」 at line endings
+- No impact on legitimate text (which doesn't have 200+ point gaps)
 
 ## Testing
 
