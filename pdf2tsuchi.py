@@ -78,11 +78,34 @@ def parse(pdf_path):
         m = LABEL_RE.match(t)
         if m:
             label = m.group("label")
+            label_kind, label_num = kind_num(label)
             # 親 = ラベルより左にラベルがある最も深いノード
+            # ただし、多ページセクションの保護: 浅い階層（第N/数字）は深い階層（丸数字等）で削除しない
             while len(stack) > 1 and stack[-1][0] >= x - 3:
+                stack_kind = stack[-1][1].kind
+                # 深い階層ラベルを処理中で、スタック最上位が浅い階層の場合は保護
+                if stack_kind in ("dai", "num") and label_kind in ("maru", "paren", "kana", "dot"):
+                    break
                 stack.pop()
             parent = stack[-1][1]
             ok = accept(parent, label)
+            
+            # accept が False の場合、多ページにわたるセクションで親が見失われた可能性
+            # スタックを遡って accept できる親を探す
+            if not ok and label_kind in ("num",):
+                # 数字ラベルの場合、同じ種類の兄弟を持つ親を探す
+                saved_stack = list(stack)
+                while len(stack) > 1:
+                    stack.pop()
+                    parent = stack[-1][1]
+                    ok = accept(parent, label)
+                    if ok:
+                        break
+                else:
+                    # 見つからなかった場合は元に戻す
+                    stack[:] = saved_stack
+                    parent = stack[-1][1]
+                    ok = False
             if ok == "dup":
                 WARN.append(f"p.{pno}: 番号「{label}」が重複している（原本の誤植と思われる）: {t[:30]}")
             if ok:
