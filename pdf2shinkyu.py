@@ -57,9 +57,10 @@ class Col:
                 self.pre.paras.append(""); self.pre.ul.append([])
             self.pre.paras[-1] += t; self.pre.ul[-1] += ul
             return
-        # 結合ラベル（第３・第４など）を検出（空白補完の前にチェック）
+        # 結合ラベル（第N・第M...）を検出（空白補完の前にチェック）
+        # SCOPE: ONLY 第N・第M・第K... パターン（全て第で始まる）
         # 例: "第３・第４ （略）" → label="第３・第４", text="（略）"
-        combined_match = re.match(r"^(第[０-９0-9]+(?:・第?[０-９0-9]+)+)\s+(.+)$", t)
+        combined_match = re.match(r"^(第[０-９0-9]+(?:・第[０-９0-9]+)+)\s+(.+)$", t)
         if combined_match:
             # 結合ラベルとして扱う（後でsplit_combined_labelsで分割される）
             label = combined_match.group(1)
@@ -186,32 +187,20 @@ def parse(pdf_path, pages):
 
 # ------------------------------------------------------------------ 結合ラベルの分割
 def split_combined_labels(entries):
-    """結合ラベル（第３・第４など）を個別エントリに分割
+    """第N・第M（略）パターンを個別エントリに分割
     
-    「第３・第４（略）」のような結合ラベルを個別の「第３（略）」「第４（略）」に分割。
-    これにより、apply時に基底文書の個別セクションとマッチできるようになる。
+    SCOPE: ONLY 第N・第M・第K...（略）パターン（全て第で始まる）
+    「第３・第４（略）」→「第３（略）」「第４（略）」に分割。
+    これにより、apply時に基底文書の個別セクションとマッチできる。
     """
     result = []
     for e in entries:
-        # ・を含むラベルで、かつ（略）の場合のみ分割
+        # ONLY: ・を含み、（略）で、全パーツが「第」で始まるパターンのみ分割
         if e.label and "・" in e.label and e.text.strip() == "（略）":
-            # ・で分割して個別ラベルを抽出
-            parts = e.label.split("・")
-            labels = []
-            for i, part in enumerate(parts):
-                part = part.strip()
-                # 第N・第M の形式：両方に「第」がある
-                if part.startswith("第"):
-                    labels.append(part)
-                # 第N・M の形式：2つ目以降に「第」を補完
-                elif i > 0 and parts[0].strip().startswith("第"):
-                    labels.append("第" + part)
-                else:
-                    labels.append(part)
-            
-            if len(labels) > 1:
-                # 複数のラベルに分割
-                for lab in labels:
+            parts = [p.strip() for p in e.label.split("・")]
+            # 全パーツが「第」で始まる場合のみ分割
+            if all(p.startswith("第") for p in parts) and len(parts) > 1:
+                for lab in parts:
                     split_e = Entry(e.y, lab, e.text, e.depth, e.place, e.ul[0] if e.ul else None)
                     split_e.paras = list(e.paras)
                     split_e.ul = list(e.ul)
