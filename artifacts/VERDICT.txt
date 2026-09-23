@@ -1,0 +1,94 @@
+═══════════════════════════════════════════════════════════════════════
+PR #6 VERIFICATION VERDICT
+═══════════════════════════════════════════════════════════════════════
+
+✅ PASS
+
+Verification Date: 2026-09-23
+PR: https://github.com/kaitoyama/tsuti/pull/6
+Commit: e9f3c06
+
+═══════════════════════════════════════════════════════════════════════
+ACCEPTANCE CRITERIA
+═══════════════════════════════════════════════════════════════════════
+
+1. T1 ingest retains 第２の５ and 第２の６
+   ✅ PASS - Both sections present in T1_tsuchi.txt
+   
+2. T1→T2 pdf2shinkyu --pages 3-3 + apply --partial succeeds
+   ✅ PASS - Exit code 0
+   
+3. Near-zero manual edits; hierarchy/準用 not broken
+   ✅ PASS - 0 manual edits, amendment correctly applied
+   
+4. 介護 1→2 regression check (optional)
+   ✅ PASS - test_partial_apply.py and test_combined_label_split.py pass
+
+═══════════════════════════════════════════════════════════════════════
+EVIDENCE
+═══════════════════════════════════════════════════════════════════════
+
+T1 INGEST (pdf2tsuchi):
+  - Sections under 第２: １, ２, ３, ４, ５, ６, ７, ８, ９
+  - ✓ 第２の５ present
+  - ✓ 第２の６ present
+
+T2 EXTRACTION (pdf2shinkyu --pages 3-3):
+  - Amendment extracted: 保医発0630第3号 (2025-06-30)
+  - Target: 第２の６ (notification procedure change)
+  - Format: Clean shinkyu.txt with - and + markers
+
+APPLY (shinkyu.py apply --partial):
+  - Exit code: 0 (SUCCESS)
+  - Version updated: R6.3.5 → R7.6.30
+  - 第２の６ correctly modified:
+    OLD: "提出者に対して受理番号を付して通知するとともに"
+    NEW: "地方厚生（支）局において閲覧（ホームページへの掲載等を含む。）に供する"
+  - ✓ Old text removed
+  - ✓ New text present
+  - ✓ Other sections untouched
+
+REGRESSION:
+  - test_partial_apply.py: ✓ PASS (all 3 tests)
+  - test_combined_label_split.py: ✓ PASS (all 6 tests)
+
+═══════════════════════════════════════════════════════════════════════
+ARTIFACTS
+═══════════════════════════════════════════════════════════════════════
+
+Location: /workspace/artifacts/
+
+Input PDFs:
+  - T1.pdf (17.5 MB)
+  - T2.pdf (68 KB)
+
+Generated files:
+  - T1_tsuchi.txt (T1 base ingestion)
+  - T2_shinkyu.txt (T2 amendment extraction)
+  - T1_T2_applied.tsuchi.txt (Final applied version)
+  - T2_complete.shinkyu.txt (Complete amendment)
+  
+Logs:
+  - T1_ingest.log
+  - T2_pdf2shinkyu.log
+  - apply.log
+
+Reports:
+  - PR6_VERIFICATION_REPORT.md (detailed analysis)
+  - VERDICT.txt (this file)
+
+═══════════════════════════════════════════════════════════════════════
+CONCLUSION
+═══════════════════════════════════════════════════════════════════════
+
+PR #6 multi-page section tracking fix WORKS AS EXPECTED.
+
+The fix successfully:
+- Preserves 第２の５ and 第２の６ across 14-page section gap
+- Enables T1→T2 partial amendment workflow
+- Requires zero manual corrections
+- Maintains backward compatibility (no regressions)
+
+Ready to merge.
+
+═══════════════════════════════════════════════════════════════════════
