@@ -30,10 +30,12 @@ def lines_of(pdf):
 
 def accept(parent, label):
     """番号が連続しているときだけラベルとして認める（本文中の「12 年」等の誤認を防ぐ）"""
+    if re.search("[～・]", label):
+        return False
     kind, num = kind_num(label)
     if kind in ("special", "dot"):
         return True
-    if kind == "beshi" or re.search("[～・]", label):
+    if kind == "beshi":
         return False
     same = [c for c in parent.children if c.kind == kind]
     if same and num == same[-1].num and kind in ("maru", "paren", "kana"):
@@ -89,9 +91,10 @@ def parse(pdf_path):
                 stack.append((x, n))
                 cur_para = (n, "text", 0)
                 continue
-            sib = [c for c in parent.children if c.kind == kind_num(label)[0]]
-            if sib and kind_num(label)[0] in ("maru", "paren", "kana"):
-                WARN.append(f"p.{pno}: 番号「{label}」が並びに合わない（直前は「{sib[-1].label}」）→ 本文として扱った: {t[:30]}")
+            if not re.search("[～・]", label):
+                sib = [c for c in parent.children if c.kind == kind_num(label)[0]]
+                if sib and kind_num(label)[0] in ("maru", "paren", "kana"):
+                    WARN.append(f"p.{pno}: 番号「{label}」が並びに合わない（直前は「{sib[-1].label}」）→ 本文として扱った: {t[:30]}")
         # 本文の行：所有ノード = ラベル位置が x より左で最も深いもの
         k = len(stack) - 1
         while k > 1 and stack[k][0] > x - 6:
