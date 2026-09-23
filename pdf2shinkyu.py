@@ -58,6 +58,7 @@ class Col:
             self.pre.paras[-1] += t; self.pre.ul[-1] += ul
             return
         t2 = re.sub(r"^(第[０-９0-9]+)(?![号条項の０-９0-9～])(?=\S)", r"\1 ", t)   # 「第６介護予防…」の空白欠落
+        
         m = LABEL_RE.match(t2)
         if m:
             label = m.group("label")
@@ -193,6 +194,22 @@ def pair(L, R):
 def build(L, R):
     out, warn, path = [], [], []
     for l, r in pair(L.entries, R.entries):
+        # Fix: Handle combined labels like "第３" with text "・第４ （略）" that need to be split
+        # This happens when the PDF has "第３・第４ （略）" on one line
+        if l and r and l.label and r.label and l.label == r.label:
+            # Check if the text is "・第N （略）" pattern
+            l_text_match = re.match(r"^[・･]\s*(第[０-９0-9]+)\s*[（(]略[）)]$", l.text.strip())
+            r_text_match = re.match(r"^[・･]\s*(第[０-９0-9]+)\s*[（(]略[）)]$", r.text.strip())
+            if l_text_match and r_text_match:
+                # Split both into two separate (略) entries
+                # Use the depth from the entry
+                d = l.depth
+                first_label = l.label
+                second_label = l_text_match.group(1)
+                out.append(f" {'  ' * d}{first_label}　（略）")
+                out.append(f" {'  ' * d}{second_label}　（略）")
+                continue
+        
         base = l if (l and l.label) else r
         d = base.depth
         del path[d:]; path.append(base.label)
