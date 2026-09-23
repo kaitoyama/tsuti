@@ -108,7 +108,9 @@ def apply_children(base, patch, path, errs, strict=True, partial=False):
             i += 1
             if k + 1 < len(patch) and patch[k + 1].mark == "+":    # 直後が '+' → 改める
                 q = patch[k + 1]
-                n = Node(q.label, q.text, list(q.paras), tail=list(b.tail))
+                # 部分改正モードで対照表に段落が書かれていない場合は原本の段落を保持
+                paras = list(q.paras) if q.paras or not partial else list(b.paras)
+                n = Node(q.label, q.text, paras, tail=list(b.tail))
                 n.uid, n.authored = b.uid, True        # 同じ項目の書き換え（参照先としては同一）
                 if any(c.mark == " " for c in q.children):
                     n.children = apply_children(b.children, q.children, here, errs, strict, partial)
