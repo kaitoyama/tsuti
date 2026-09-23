@@ -19,8 +19,19 @@ def body(n):
     return [norm(n.text)] + [norm(p) for p in n.paras] + [norm(p) for p in n.tail]
 
 
-def apply_children(base, patch, path, errs, strict=True):
-    """base: 原本の子リスト, patch: 対照表テキストの子リスト → 新しい子リスト"""
+def apply_children(base, patch, path, errs, strict=True, partial=False):
+    """base: 原本の子リスト, patch: 対照表テキストの子リスト → 新しい子リスト
+    partial=True: 部分改正モード。対照表に出てこない項目は原本のまま残す"""
+    if partial:
+        # 部分改正モード：対照表に出てくるラベルのセットを抽出
+        patch_labels = {p.label for p in patch if p.mark in (" ", "-", "+")}
+        # 範囲の（略）も展開してラベルに含める
+        for p in patch:
+            if p.mark == " " and p.text == "（略）":
+                news = expand_range(p.label)
+                olds = expand_range(p.old_label) if p.old_label else news
+                patch_labels.update(news + olds)
+    
     out, i, k = [], 0, 0
 
     def err(msg):
@@ -39,26 +50,56 @@ def apply_children(base, patch, path, errs, strict=True):
                 err(f"繰下げ範囲の個数が合わない {p.label}←{p.old_label}")
             for j, ol in enumerate(olds):
                 if at(i) != ol:
-                    err(f"（略）とされた「{ol}」が原本の該当位置にない（原本側は「{at(i)}」）")
-                    break
+                    # 部分改正モードでは、前の項目をスキップして探す
+                    if partial:
+                        while i < len(base) and at(i) != ol:
+                            if base[i].label not in patch_labels:
+                                out.append(copy.deepcopy(base[i]))
+                            i += 1
+                        if i >= len(base):
+                            err(f"（略）とされた「{ol}」が原本にない")
+                            break
+                    else:
+                        err(f"（略）とされた「{ol}」が原本の該当位置にない（原本側は「{at(i)}」）")
+                        break
                 n = copy.deepcopy(base[i])
                 n.label = news[j] if j < len(news) else ol
                 out.append(n); i += 1
             k += 1
         elif p.mark == " ":                                        # 見出し（文脈）
             if at(i) != p.label:
-                err(f"見出し「{p.label}」が原本の該当位置にない（原本側は「{at(i)}」）")
-                k += 1; continue
+                # 部分改正モードでは、前の項目をスキップして探す
+                if partial:
+                    while i < len(base) and at(i) != p.label:
+                        if base[i].label not in patch_labels:
+                            out.append(copy.deepcopy(base[i]))
+                        i += 1
+                    if i >= len(base):
+                        err(f"見出し「{p.label}」が原本にない")
+                        k += 1; continue
+                else:
+                    err(f"見出し「{p.label}」が原本の該当位置にない（原本側は「{at(i)}」）")
+                    k += 1; continue
             b = base[i]
             if norm(b.text) != norm(p.text) or (p.paras and [norm(x) for x in p.paras] != [norm(x) for x in b.paras]):
                 err(f"見出し・本文が原本と違う\n      原本: {b.text[:60]}\n      表　: {p.text[:60]}")
             n = copy.deepcopy(b)
-            n.children = apply_children(b.children, p.children, here, errs, strict)
+            n.children = apply_children(b.children, p.children, here, errs, strict, partial)
             out.append(n); i += 1; k += 1
         elif p.mark == "-":                                        # 現行（削る／改める）
             if at(i) != p.label:
-                err(f"削る・改める「{p.label}」が原本の該当位置にない（原本側は「{at(i)}」）")
-                k += 1; continue
+                # 部分改正モードでは、前の項目をスキップして探す
+                if partial:
+                    while i < len(base) and at(i) != p.label:
+                        if base[i].label not in patch_labels:
+                            out.append(copy.deepcopy(base[i]))
+                        i += 1
+                    if i >= len(base):
+                        err(f"削る・改める「{p.label}」が原本にない")
+                        k += 1; continue
+                else:
+                    err(f"削る・改める「{p.label}」が原本の該当位置にない（原本側は「{at(i)}」）")
+                    k += 1; continue
             b = base[i]
             if body(b)[:1 + len(p.paras)] != body(p)[:1 + len(p.paras)]:
                 x, y = "".join(body(b)), "".join(body(p))
@@ -70,7 +111,7 @@ def apply_children(base, patch, path, errs, strict=True):
                 n = Node(q.label, q.text, list(q.paras), tail=list(b.tail))
                 n.uid, n.authored = b.uid, True        # 同じ項目の書き換え（参照先としては同一）
                 if any(c.mark == " " for c in q.children):
-                    n.children = apply_children(b.children, q.children, here, errs, strict)
+                    n.children = apply_children(b.children, q.children, here, errs, strict, partial)
                 else:
                     n.children = build_new(q.children) if q.children else copy.deepcopy(b.children)
                 out.append(n); k += 2
@@ -83,7 +124,7 @@ def apply_children(base, patch, path, errs, strict=True):
         else:
             err(f"未知の印 {p.mark!r}"); k += 1
     if i < len(base):
-        if strict:
+        if strict and not partial:
             err(f"対照表に出てこない項目が原本に残っている: {'・'.join(b.label for b in base[i:])}")
         out += copy.deepcopy(base[i:])
     return out
@@ -118,7 +159,7 @@ def cmd_apply(a):
     pmeta, proot = load(a.patch, marks=True)
     errs = []
     want = pmeta.get("base_version")
-    if want and bmeta.get("version") != want:
+    if want and bmeta.get("version") != want and not a.partial:
         msg = f"版が違う: 原本は {bmeta.get('version')}、この改正は {want} を前提としている"
         if not a.force:
             sys.exit("エラー: " + msg + "（--force で差異の一覧を出す）")
@@ -126,7 +167,7 @@ def cmd_apply(a):
     R.mark_uids(broot)
     snap = R.snapshot(broot)                                 # 改正前の版で参照先を解決しておく
     new = Node("ROOT")
-    new.children = apply_children(broot.children, proot.children, "", errs, strict=not a.lenient)
+    new.children = apply_children(broot.children, proot.children, "", errs, strict=not a.lenient, partial=a.partial)
     changes, warns = ([], []) if a.no_follow else R.follow(broot, new, snap)
     for path, old, rep in changes:
         print(f"参照を追従: {path}  {old} → {rep}")
@@ -431,6 +472,7 @@ def main():
     p = sp.add_parser("apply"); p.add_argument("base"); p.add_argument("patch"); p.add_argument("-o", required=True)
     p.add_argument("--force", action="store_true", help="版違い・不一致があっても最後まで処理して一覧を出す")
     p.add_argument("--lenient", action="store_true", help="対照表に出てこない末尾の項目を不変とみなす")
+    p.add_argument("--partial", action="store_true", help="部分改正モード：対照表に出てこない項目は原本のまま残す（実際の保医発等の部分的な新旧対照表向け）")
     p.add_argument("--no-follow", action="store_true", help="番号参照の追従をしない")
     p.add_argument("--patch-out", help="参照の追従を含めた対照表テキストの書き出し先")
     p = sp.add_parser("lint"); p.add_argument("doc")
