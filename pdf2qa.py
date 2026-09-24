@@ -310,6 +310,16 @@ def parse(pdf_path):
     return metadata, items
 
 
+def normalize_q_num(q_num):
+    """Normalize question number for duplicate comparison (NFKC + remove spaces)"""
+    import unicodedata
+    # Remove spaces
+    normalized = q_num.replace(' ', '')
+    # NFKC normalization (full-width -> half-width)
+    normalized = unicodedata.normalize('NFKC', normalized)
+    return normalized
+
+
 def save(output_path, metadata, items):
     """Save to YAML"""
     # Build output dict with specific key order
@@ -325,7 +335,7 @@ def save(output_path, metadata, items):
         yaml.safe_dump(output, f, allow_unicode=True, sort_keys=False, width=200, default_flow_style=False)
     
     # Check for duplicates and warn
-    from collections import defaultdict, Counter
+    from collections import defaultdict
     betten_groups = defaultdict(list)
     for item in items:
         betten = item.get("別添", "なし")
@@ -339,12 +349,19 @@ def save(output_path, metadata, items):
         if actual_betten_count != expected_betten_count:
             warnings.append(f"⚠ Expected {expected_betten_count} 別添 from body text, but extracted {actual_betten_count}")
     
-    # Check for duplicates
+    # Check for duplicates (normalize for comparison, but report original notation)
     for betten, q_nums in betten_groups.items():
-        q_counts = Counter(q_nums)
-        for q_num, count in q_counts.items():
-            if count > 1:
-                warnings.append(f"⚠ Duplicate {q_num} in {betten} ({count} instances - kept as-is from source)")
+        # Build normalized -> original mapping
+        normalized_map = defaultdict(list)
+        for q_num in q_nums:
+            normalized = normalize_q_num(q_num)
+            normalized_map[normalized].append(q_num)
+        
+        # Find duplicates
+        for normalized, originals in normalized_map.items():
+            if len(originals) > 1:
+                # Use the first original notation for the warning
+                warnings.append(f"⚠ Duplicate {originals[0]} in {betten} ({len(originals)} instances - kept as-is from source)")
     
     return warnings
 

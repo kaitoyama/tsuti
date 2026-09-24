@@ -138,10 +138,34 @@ def test_q3_qa_vol1524():
     return len(items)
 
 
+def test_normalization():
+    """Test that question number normalization works correctly"""
+    from pdf2qa import normalize_q_num
+    
+    # Test 1: Full-width and half-width should be treated as same
+    assert normalize_q_num('問１') == normalize_q_num('問1'), "Full-width and half-width should match"
+    assert normalize_q_num('問１－１') == normalize_q_num('問1-1'), "Full-width hyphenated should match half-width"
+    
+    # Test 2: Space should be normalized away
+    assert normalize_q_num('問 10') == normalize_q_num('問10'), "Space should be removed for comparison"
+    assert normalize_q_num('問 １０') == normalize_q_num('問10'), "Space and full-width should normalize to same"
+    
+    # Test 3: 問1-1 and 問11 should be DIFFERENT
+    assert normalize_q_num('問1-1') != normalize_q_num('問11'), "問1-1 and 問11 must be different!"
+    assert normalize_q_num('問１－１') != normalize_q_num('問11'), "問１－１ and 問11 must be different!"
+    assert normalize_q_num('問１－１') != normalize_q_num('問１１'), "問１－１ and 問１１ must be different!"
+    
+    print("✓ Normalization tests passed")
+    return True
+
+
 if __name__ == "__main__":
     counts = []
     q2_betten_counts = {}
     try:
+        # Test normalization first
+        test_normalization()
+        
         counts.append(("Q1", test_q1_疑義解釈その12()))
         q2_betten_counts = test_q2_疑義解釈その2()
         counts.append(("Q2", sum(q2_betten_counts.values())))
