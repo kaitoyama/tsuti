@@ -119,6 +119,7 @@ def extract_items(pdf, start_page=1):
     items = []
     current_betten = None
     current_midashi = []
+    implicit_betten_section = False
     
     # Pre-process all pages: collect full text and remove page markers
     full_text_lines = []
@@ -139,13 +140,25 @@ def extract_items(pdf, start_page=1):
     while i < len(full_text_lines):
         line = full_text_lines[i]
         
-        # 別添 marker
-        betten_match = re.match(r"^[（(]?別添[０-９0-9１-９]+[）)]?$", line)
+        # Explicit 別添 marker
+        betten_match = re.match(r"^[（(]別添([０-９0-9１-９]+)[）)]$", line)
         if betten_match:
             current_betten = re.sub(r"[（()）]", "", line)
             current_midashi = []
+            implicit_betten_section = False
             i += 1
             continue
+        
+        # Implicit 別添１: section header ending with 関係 at the start
+        # (e.g., "医科診療報酬点数表関係" without preceding （別添１） marker)
+        if not current_betten and not implicit_betten_section:
+            section_match = re.match(r"^(.+関係)$", line)
+            if section_match and len(line) < 60:
+                # This is likely the start of implicit 別添１
+                current_betten = "別添１"
+                implicit_betten_section = True
+                i += 1
+                continue
         
         # 見出し (【...】)
         midashi_match = re.match(r"^【[^】]+】$", line)
@@ -164,8 +177,8 @@ def extract_items(pdf, start_page=1):
             i += 1
             continue
         
-        # Question start (問N or QN)
-        q_match = re.match(r"^(問[０-９0-9１-９]+|Q[０-９0-9１-９]+)\s+(.*)$", line)
+        # Question start (問N, QN, or 問N－M format)
+        q_match = re.match(r"^(問[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.*)$", line)
         if q_match:
             q_num = q_match.group(1)
             q_text = q_match.group(2)
@@ -178,7 +191,7 @@ def extract_items(pdf, start_page=1):
                 if re.match(r"^[（(]答[）)]\s*", next_line):
                     break
                 # Stop at new question, 見出し, or 別添
-                if re.match(r"^(問[０-９0-9１-９]+|Q[０-９0-9１-９]+)\s+", next_line):
+                if re.match(r"^(問[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
                     break
                 if re.match(r"^【[^】]+】$", next_line):
                     break
@@ -204,7 +217,7 @@ def extract_items(pdf, start_page=1):
                     while i < len(full_text_lines):
                         next_line = full_text_lines[i]
                         # Stop at next question, 見出し, or 別添
-                        if re.match(r"^(問[０-９0-9１-９]+|Q[０-９0-9１-９]+)\s+", next_line):
+                        if re.match(r"^(問[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
                             break
                         if re.match(r"^【[^】]+】$", next_line):
                             break
@@ -243,6 +256,15 @@ def extract_items(pdf, start_page=1):
             continue
         
         i += 1
+    
+    # Post-process: infer 別添１ for items without explicit 別添
+    # If we have items with 別添２+, then items without 別添 should be 別添１
+    has_explicit_betten = any(item.get("別添") for item in items)
+    
+    if has_explicit_betten:
+        for item in items:
+            if not item.get("別添"):
+                item["別添"] = "別添１"
     
     return items
 

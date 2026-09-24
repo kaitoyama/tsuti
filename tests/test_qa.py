@@ -60,23 +60,34 @@ def test_q2_疑義解釈その2():
         assert isinstance(item["答"], list), f"Item {i+1} answer should be a list"
         assert len(item["答"]) > 0, f"Item {i+1} answer list is empty"
     
-    # 3. Within the same 別添, 問番号 is not duplicated
-    betten_groups = {}
-    duplicates = []
+    # 3. Within the same 別添, 問番号 is not duplicated (except known source issue)
+    from collections import defaultdict, Counter
+    betten_groups = defaultdict(list)
     for item in items:
-        betten = item.get("別添", "なし")
+        betten = item.get("別添")
         q_num = item["問番号"]
-        if betten not in betten_groups:
-            betten_groups[betten] = []
-        if q_num in betten_groups[betten]:
-            duplicates.append((betten, q_num))
         betten_groups[betten].append(q_num)
     
+    # Assert we have exactly 6 別添
+    assert len(betten_groups) == 6, f"Expected 6 別添, got {len(betten_groups)}: {sorted(betten_groups.keys())}"
+    
+    # Check for duplicates
+    duplicates = []
+    for betten, q_nums in betten_groups.items():
+        q_counts = Counter(q_nums)
+        for q_num, count in q_counts.items():
+            if count > 1:
+                duplicates.append((betten, q_num))
+    
+    # Known source PDF issue: 別添５ has duplicate 問４ (pages 83 and 84)
     if duplicates:
-        print(f"  ⚠ Found duplicates (may be source PDF issue): {duplicates}")
+        assert duplicates == [('別添５', '問４')], f"Expected only known duplicate ('別添５', '問４'), got {duplicates}"
+        print(f"  ⚠ Found known source PDF duplicate: 別添５ has two 問４ (pages 83 and 84)")
     
     print(f"✓ Q2: {len(items)} items, {len(betten_groups)} 別添 groups")
-    return len(items)
+    
+    # Return per-別添 counts for reporting
+    return {betten: len(q_nums) for betten, q_nums in betten_groups.items()}
 
 
 def test_q3_qa_vol1524():
@@ -112,15 +123,23 @@ def test_q3_qa_vol1524():
 
 if __name__ == "__main__":
     counts = []
+    q2_betten_counts = {}
     try:
         counts.append(("Q1", test_q1_疑義解釈その12()))
-        counts.append(("Q2", test_q2_疑義解釈その2()))
+        q2_betten_counts = test_q2_疑義解釈その2()
+        counts.append(("Q2", sum(q2_betten_counts.values())))
         counts.append(("Q3", test_q3_qa_vol1524()))
         
         print("\nAll tests passed! ✓")
         print("\nItem counts:")
         for name, count in counts:
-            print(f"  {name}: {count} items")
+            if name == "Q2":
+                print(f"  {name}: {count} items")
+                print("    Per-別添:")
+                for betten in sorted(q2_betten_counts.keys()):
+                    print(f"      {betten}: {q2_betten_counts[betten]} items")
+            else:
+                print(f"  {name}: {count} items")
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")
         sys.exit(1)
