@@ -97,10 +97,10 @@ def extract_metadata(pdf):
             line = lines[i].strip()
             if "疑義解釈" in line and len(line) > 10:
                 meta["件名"] = line
-                # Extract 番号 from subject
-                num_match = re.search(r"[（(]その[０-９0-9１-９]+[）)]", line)
+                # Extract 番号 from subject (with optional space after その)
+                num_match = re.search(r"[（(]その\s*[０-９0-9１-９]+[）)]", line)
                 if num_match:
-                    meta["番号"] = re.sub(r"[（(）)]", "", num_match.group(0))
+                    meta["番号"] = re.sub(r"[（(）)\s]", "", num_match.group(0))
                 meta["種別"] = "疑義解釈"
                 break
     
@@ -285,8 +285,9 @@ def extract_items(pdf, start_page=1):
                 # Check if answer starts
                 if re.match(r"^[（(]答[）)]\s*", next_line):
                     break
-                # Stop at new question, 見出し, or 別添
-                if re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
+                # Stop at new question (but not references like "問122 の③")
+                q_start = re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.)", next_line)
+                if q_start and q_start.group(2) != 'の':
                     break
                 if re.match(r"^【[^】]+】$", next_line):
                     break
@@ -311,8 +312,9 @@ def extract_items(pdf, start_page=1):
                     current_para = a_text
                     while i < len(full_text_lines):
                         next_line = full_text_lines[i]
-                        # Stop at next question, 見出し, or 別添
-                        if re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
+                        # Stop at next question (but not references like "問122 の③")
+                        q_start = re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.)", next_line)
+                        if q_start and q_start.group(2) != 'の':
                             break
                         if re.match(r"^【[^】]+】$", next_line):
                             break
