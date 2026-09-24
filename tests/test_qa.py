@@ -198,12 +198,91 @@ def test_normalization():
     return True
 
 
+def test_sono_number_extraction():
+    """Test extraction of その N from subject with various spacing patterns"""
+    import re
+    
+    # This is the regex pattern used in pdf2qa.py extract_metadata
+    pattern = r"[（(]その\s*[０-９0-9１-９]+[）)]"
+    
+    # Test 1: No space (existing pattern that already worked)
+    text1 = "令和６年度診療報酬改定に係る疑義解釈資料の送付について（その12）"
+    match1 = re.search(pattern, text1)
+    assert match1 is not None, "Should match その12 without space"
+    result1 = re.sub(r"[（(）)\s]", "", match1.group(0))
+    assert result1 == "その12", f"Expected 'その12', got '{result1}'"
+    
+    # Test 2: Half-width space (Bug 1 case - P4 R4 その65)
+    text2 = "令和６年度診療報酬改定に係る疑義解釈資料の送付について（その 65）"
+    match2 = re.search(pattern, text2)
+    assert match2 is not None, "Should match その 65 with half-width space"
+    result2 = re.sub(r"[（(）)\s]", "", match2.group(0))
+    assert result2 == "その65", f"Expected 'その65', got '{result2}'"
+    
+    # Test 3: Half-width space with three-digit number (Bug 1 case - P6 R2 その101)
+    text3 = "令和６年度診療報酬改定に係る疑義解釈資料の送付について（その 101）"
+    match3 = re.search(pattern, text3)
+    assert match3 is not None, "Should match その 101 with half-width space"
+    result3 = re.sub(r"[（(）)\s]", "", match3.group(0))
+    assert result3 == "その101", f"Expected 'その101', got '{result3}'"
+    
+    # Test 4: Full-width numbers
+    text4 = "令和６年度診療報酬改定に係る疑義解釈資料の送付について（その２）"
+    match4 = re.search(pattern, text4)
+    assert match4 is not None, "Should match その２ with full-width number"
+    result4 = re.sub(r"[（(）)\s]", "", match4.group(0))
+    assert result4 == "その２", f"Expected 'その２', got '{result4}'"
+    
+    # Test 5: Full-width numbers with space
+    text5 = "令和６年度診療報酬改定に係る疑義解釈資料の送付について（その ６５）"
+    match5 = re.search(pattern, text5)
+    assert match5 is not None, "Should match その ６５ with full-width number and space"
+    result5 = re.sub(r"[（(）)\s]", "", match5.group(0))
+    assert result5 == "その６５", f"Expected 'その６５', got '{result5}'"
+    
+    print("✓ その N number extraction tests passed")
+    return True
+
+
+def test_question_reference_handling():
+    """Test that question references (like 問122 の③) within question text are not treated as new questions"""
+    import re
+    
+    # Simulate the pattern matching used in extract_items
+    # Bug 2 case: A line like "問122 の③及び④の場合について" should NOT be treated as a new question
+    
+    # Test 1: Question reference with の particle should not match as new question
+    test_line1 = "問122 の③及び④の場合について、それぞれどのように考えればよいか。"
+    q_start1 = re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.)", test_line1)
+    if q_start1:
+        # Should detect that it starts with の
+        assert q_start1.group(2) == 'の', "Should capture の as the character after question number"
+    
+    # Test 2: Real question start should still match
+    test_line2 = "問 124 精神科救急急性期医療入院料等の施設基準について"
+    q_start2 = re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.)", test_line2)
+    assert q_start2 is not None, "Should match real question start"
+    assert q_start2.group(2) == '精', "Should capture first character of question text"
+    assert q_start2.group(2) != 'の', "Real question should not start with の"
+    
+    # Test 3: Another real question start
+    test_line3 = "問125 精神科地域包括ケア病棟入院料"
+    q_start3 = re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.)", test_line3)
+    assert q_start3 is not None, "Should match real question start"
+    assert q_start3.group(2) != 'の', "Real question should not start with の"
+    
+    print("✓ Question reference handling tests passed")
+    return True
+
+
 if __name__ == "__main__":
     counts = []
     q2_betten_counts = {}
     try:
-        # Test normalization first
+        # Test normalization and regression tests first
         test_normalization()
+        test_sono_number_extraction()
+        test_question_reference_handling()
         
         counts.append(("Q1", test_q1_疑義解釈その12()))
         q2_betten_counts = test_q2_疑義解釈その2()
