@@ -184,8 +184,8 @@ def extract_items(pdf, start_page=1):
             i += 1
             continue
         
-        # Question start (問N, QN, or 問N－M format)
-        q_match = re.match(r"^(問[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.*)$", line)
+        # Question start (問N, QN, or 問N－M format, with optional space)
+        q_match = re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+(.*)$", line)
         if q_match:
             q_num = q_match.group(1)
             q_text = q_match.group(2)
@@ -198,7 +198,7 @@ def extract_items(pdf, start_page=1):
                 if re.match(r"^[（(]答[）)]\s*", next_line):
                     break
                 # Stop at new question, 見出し, or 別添
-                if re.match(r"^(問[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
+                if re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
                     break
                 if re.match(r"^【[^】]+】$", next_line):
                     break
@@ -224,14 +224,17 @@ def extract_items(pdf, start_page=1):
                     while i < len(full_text_lines):
                         next_line = full_text_lines[i]
                         # Stop at next question, 見出し, or 別添
-                        if re.match(r"^(問[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
+                        if re.match(r"^(問\s*[０-９0-9１-９]+[－\-]?[０-９0-9１-９]*|Q[０-９0-9１-９]+)\s+", next_line):
                             break
                         if re.match(r"^【[^】]+】$", next_line):
                             break
                         if re.match(r"^[（(]?別添[０-９0-9１-９]+[）)]?$", next_line):
                             break
-                        if re.match(r"^○\s+", next_line):
-                            break
+                        # ○ markers can be bullet points in answers, only break if we already have content
+                        if re.match(r"^○\s+", next_line) and (current_para or a_paras):
+                            # Check if this looks like a new section header (short, ends with certain chars)
+                            if len(next_line) < 30 or next_line.endswith(("について", "関係", "加算")):
+                                break
                         
                         # Empty line indicates paragraph break
                         if not next_line:

@@ -71,6 +71,19 @@ def test_q2_疑義解釈その2():
     # Assert we have exactly 6 別添
     assert len(betten_groups) == 6, f"Expected 6 別添, got {len(betten_groups)}: {sorted(betten_groups.keys())}"
     
+    # Assert exact per-別添 counts (ground truth from teammate's manual count)
+    expected_counts = {
+        '別添１': 145,
+        '別添２': 10,
+        '別添３': 133,
+        '別添４': 10,
+        '別添５': 25,
+        '別添６': 6,
+    }
+    for betten, expected in expected_counts.items():
+        actual = len(betten_groups[betten])
+        assert actual == expected, f"{betten}: expected {expected} items, got {actual}"
+    
     # Check for duplicates
     duplicates = []
     for betten, q_nums in betten_groups.items():
