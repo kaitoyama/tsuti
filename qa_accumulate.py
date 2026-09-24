@@ -136,9 +136,13 @@ def ingest_issue(issue_spec, cache_dir):
         
         # Annotate items with issue metadata
         gou = issue_spec.get('号名', '')
+        keiretsu = issue_spec.get('系列', '医科の疑義解釈')
+        nendo = issue_spec.get('改定年度', 2026)
         for item in items:
             item['_issue_gou'] = gou
             item['_issue_date'] = issue_spec['日付']
+            item['_issue_keiretsu'] = keiretsu
+            item['_issue_nendo'] = nendo
         
         all_items.extend(items)
     
@@ -221,23 +225,27 @@ def apply_events(corpus, target_date_iso, cache_dir):
             
             continue
         
-        # Check for replacement
+        # Check for replacement (only if 号名 is non-empty)
         registry_key = (keiretsu, nendo, gou)
-        if registry_key in issue_registry:
-            # Replacement: remove all questions from old issue
+        if gou and registry_key in issue_registry:
+            # Replacement: remove all questions from old issue matching (系列, 年度, 号名)
             old_issue = issue_registry[registry_key]
             old_date = old_issue['日付']
             
-            # Remove old questions
-            to_remove = [k for k in questions.keys() if k[0] == gou]
+            # Remove old questions matching the full key
+            to_remove = [k for k, v in questions.items() 
+                        if (v.get('_issue_gou') == gou and
+                            v.get('_issue_keiretsu') == keiretsu and
+                            v.get('_issue_nendo') == nendo)]
             for k in to_remove:
                 del questions[k]
             
             stats['issues_replaced'] += 1
             stats['events'].append(f"{issue_spec['日付']}: 置換 {gou} (旧: {old_date})")
         
-        # Register issue
-        issue_registry[registry_key] = issue_spec
+        # Register issue (only if 号名 is non-empty)
+        if gou:
+            issue_registry[registry_key] = issue_spec
         
         # Ingest issue
         items, metadata, haishi_stmts = ingest_issue(issue_spec, cache_dir)
@@ -258,18 +266,43 @@ def apply_events(corpus, target_date_iso, cache_dir):
         for haishi in haishi_stmts:
             haishi_text = haishi['原文']
             
-            # Check if it targets a past year
+            # Check if it targets a past or current year issue
             target = parse_haishi_target(haishi_text)
             if target:
-                abolishments.append({
-                    '原文': haishi_text,
-                    '年度': target['年度'],
-                    '号': target['号'],
-                    '別添': target['別添'],
-                    '問番号': target['問番号']
-                })
+                # Check if target year matches current issue's 改定年度
+                if target['年度'] == nendo:
+                    # Same-year inter-issue abolishment: remove from live set
+                    target_gou = target.get('号')
+                    target_betten = target.get('別添')
+                    target_q_num = target.get('問番号')
+                    
+                    # Find and remove the question
+                    to_remove = None
+                    for key, item in questions.items():
+                        matches_gou = (not target_gou or item.get('_issue_gou') == target_gou)
+                        matches_betten = (not target_betten or 
+                                        normalize_betten(item.get('別添')) == normalize_betten(target_betten))
+                        matches_q = (not target_q_num or item['問番号'] == target_q_num)
+                        
+                        if matches_gou and matches_betten and matches_q:
+                            to_remove = key
+                            break
+                    
+                    if to_remove:
+                        del questions[to_remove]
+                        stats['questions_abolished'] += 1
+                        stats['events'].append(f"{issue_spec['日付']}: 廃止 (同年度) {target_gou or ''} {target_betten or ''} {target_q_num or ''}")
+                else:
+                    # Past-year reference: add to abolishment record only
+                    abolishments.append({
+                        '原文': haishi_text,
+                        '年度': target['年度'],
+                        '号': target['号'],
+                        '別添': target['別添'],
+                        '問番号': target['問番号']
+                    })
             else:
-                # Check if it targets a current question
+                # Check if it targets a current-issue question (no year specified)
                 # Pattern: 別添N の 問M
                 current_match = re.search(r'別添([０-９0-9１-９]+)\s*の\s*問\s*([０-９0-9１-９]+)', haishi_text)
                 if current_match:
