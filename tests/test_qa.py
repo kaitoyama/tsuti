@@ -80,6 +80,10 @@ def test_q2_疑義解釈その2():
                 duplicates.append((betten, q_num))
     
     # Known source PDF issue: 別添５ has duplicate 問４ (pages 83 and 84)
+    # Evidence from original PDF:
+    #   Page 83: 問４ 地域支援・医薬品供給対応体制加算１の施設基準として、「医薬品を分譲した実績」とあるが、保険医療機関への医薬品の分譲も含まれるか。
+    #   Page 84: 問４ 地域支援体制加算の施設基準における「地域の多職種と連携する会議」とは、どのような会議が該当するのか。
+    #   Both under heading 【地域支援・医薬品供給対応体制加算】
     if duplicates:
         assert duplicates == [('別添５', '問４')], f"Expected only known duplicate ('別添５', '問４'), got {duplicates}"
         print(f"  ⚠ Found known source PDF duplicate: 別添５ has two 問４ (pages 83 and 84)")
