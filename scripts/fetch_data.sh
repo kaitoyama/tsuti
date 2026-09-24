@@ -41,4 +41,18 @@ python3 shinkyu.py render data/R8.shinkyu.txt -o data/R8_新旧対照表.html
 # 注：診療報酬通知は「第1」「1」「⑴」「①」「ア」「・」の階層を使用し、
 #     介護保険と同じ番号システムでカバーされます。
 
+# ─────────────────────────────────────────────────────────
+# 基発（Priority A-lite: 労働基準局長通達）
+# ─────────────────────────────────────────────────────────
+mkdir -p data/kihatsu_samples
+
+# K1: 基発0731第7号 / 2026-07-31 (short, correction notice)
+curl -fL -o "data/kihatsu_samples/K1.pdf" https://www.mhlw.go.jp/content/001731931.pdf
+
+# K2: 基発0919第1号 / 2025-09-19 (short, regulation enforcement)
+curl -fL -o "data/kihatsu_samples/K2.pdf" https://www.mhlw.go.jp/content/11300000/001566359.pdf
+
+# K3: 基発0526第1号 / 2026-05-26 (longer ~29pp, 記 section)
+curl -fL -o "data/kihatsu_samples/K3.pdf" https://www.mhlw.go.jp/content/11300000/001704274.pdf
+
 echo "完了: data/ を作成しました"
