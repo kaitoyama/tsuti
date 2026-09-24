@@ -1,0 +1,127 @@
+# R8 疑義解釈 corpus manifest
+
+issues:
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その1
+    日付: 令和8年3月23日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001678310.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その2
+    日付: 令和8年3月31日
+    files:
+      - url: https://kouseikyoku.mhlw.go.jp/tohoku/000477896.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その2
+    日付: 令和8年4月1日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001689076.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    title: 疑義解釈資料の送付について（その２）の一部訂正について
+    日付: 令和8年4月9日
+    correction_target:
+      号名: その2
+      別添: 別添1
+      問番号: 問104
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001689078.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その3
+    日付: 令和8年4月20日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001693874.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その4
+    日付: 令和8年4月21日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001694332.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その5
+    日付: 令和8年5月8日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001698587.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その6
+    日付: 令和8年5月22日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001703573.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その7
+    日付: 令和8年5月29日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001707505.pdf
+        order: 1
+
+  - 系列: 療養の給付と直接関係ないサービス等
+    改定年度: 2026
+    号名: ''
+    title: 療養の給付と直接関係ないサービス等
+    日付: 令和8年5月29日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001706045.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その8
+    日付: 令和8年6月17日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001712853.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その9
+    日付: 令和8年6月26日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001716069.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その10
+    日付: 令和8年7月17日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001725624.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その11
+    日付: 令和8年7月30日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001731253.pdf
+        order: 1
+
+  - 系列: 医科の疑義解釈
+    改定年度: 2026
+    号名: その12
+    日付: 令和8年9月2日
+    files:
+      - url: https://www.mhlw.go.jp/content/12400000/001744953.pdf
+        order: 1
