@@ -256,9 +256,16 @@ python shinkyu.py apply R7.tsuchi.txt 部分改正_第２の１のみ.shinkyu.tx
 
 以下の文書種別は、現在のコアとは異なる構造を持つため、別のパーサーが必要です：
 
-- **Q&A・疑義解釈**：`pdf2qa.py` により、問答形式の文書を `.qa.yaml` 形式で取り込み可能です（Priority A-lite）。新旧対照表の適用や参照の追従には対応していません。
+- **Q&A・疑義解釈**：`pdf2qa.py` により、問答形式の文書を `.qa.yaml` 形式で取り込み可能です。さらに `qa_accumulate.py` により複数号を時系列統合し「今有効な一覧」を生成できます（R8医科15 PDF検証済み）。新旧対照表の適用や参照の追従には対応していません。
 - **告示・省令本文**：法令形式（条・項・号）→ [Lawtext](https://github.com/yamachig/Lawtext) を参照
 - **e-Gov API連携**、**国税庁HTML形式の通達**：別途アダプターが必要
+
+**Q&A・疑義解釈の累積（qa_accumulate.py）**：
+```bash
+# R8疑義解釈の累積（15 PDF → 特定日時点の有効リスト）
+python qa_accumulate.py --as-of 2026-04-10 --corpus r8_corpus.yaml -o valid_list.yaml --abolishment-out abolishments.yaml
+```
+機能：号の追加・置換、一部訂正の適用、廃止イベントの処理、過去年度廃止の記録。系列ごとに独立した版管理（医科の疑義解釈、療養の給付と直接関係ないサービス等）。
 
 ### 事務連絡（Administrative Circulars）への対応（Priority A-lite）
 
