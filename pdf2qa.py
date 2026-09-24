@@ -50,14 +50,6 @@ def extract_metadata(pdf):
             meta["件名"] = subject
             meta["種別"] = "Q&A"
         
-        # Look at page 2 for more details if needed
-        if len(pdf.pages) > 1:
-            text1 = pdf.pages[1].extract_text() or ""
-            # Check for 廃止 notice
-            haishi_match = re.search(r"「[^」]+」[^。]*は廃止[^。]*。", text1)
-            if haishi_match:
-                meta["廃止"] = haishi_match.group(0)
-        
         return meta
     
     # Standard 事務連絡 cover (疑義解釈)
@@ -111,14 +103,84 @@ def extract_metadata(pdf):
                     meta["番号"] = re.sub(r"[（(）)]", "", num_match.group(0))
                 meta["種別"] = "疑義解釈"
                 break
-        
-        # Check for 廃止 notice
-        full_text = " ".join(lines)
-        haishi_match = re.search(r"「[^」]+」[^。]*は廃止[^。]*。", full_text)
-        if haishi_match:
-            meta["廃止"] = haishi_match.group(0)
     
     return meta
+
+
+def extract_haishi_statements(pdf):
+    """Extract all 廃止 (abolishment) statements from the PDF
+    
+    Returns list of dicts: {原文: str, 別添: str or None, 頁: int}
+    """
+    statements = []
+    seen_statements = set()  # To avoid duplicates from overlapping regex matches
+    current_betten = None
+    
+    for page_num, page in enumerate(pdf.pages):
+        text = page.extract_text() or ""
+        
+        # Track which 別添 we're in
+        for line in text.split('\n'):
+            betten_match = re.match(r'^[（(]?別添([０-９0-9１-９]+)[）)]?', line.strip())
+            if betten_match:
+                num = betten_match.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+                current_betten = f"別添{num}"
+        
+        # Join lines for this page to capture multi-line statements
+        full_text = ' '.join(text.split('\n'))
+        
+        # Pattern: Find sentences ending with 廃止...。
+        # Split by periods and look for 廃止 in each sentence
+        sentences = full_text.split('。')
+        for i, sentence in enumerate(sentences):
+            if '廃止' not in sentence:
+                continue
+            
+            # Add period back
+            sentence = sentence + '。'
+            
+            # Check if this is an abolishment statement
+            # Pattern 1: Document abolishment with quotes
+            if re.search(r'「[^」]+」[^。]*は廃止', sentence):
+                # Remove leading context to find the start of the statement
+                # Try to start from "なお" or "これに伴い" if present
+                cleaned = sentence
+                for prefix in ['なお、これに伴い、', 'これに伴い、', 'なお、']:
+                    if prefix in sentence:
+                        idx = sentence.index(prefix)
+                        cleaned = sentence[idx:]
+                        break
+                
+                # Create a key to deduplicate
+                key = (page_num + 1, cleaned[-100:])  # Use last 100 chars as key
+                if key not in seen_statements:
+                    statements.append({
+                        '原文': cleaned,
+                        '別添': current_betten if page_num > 0 else None,
+                        '頁': page_num + 1
+                    })
+                    seen_statements.add(key)
+            
+            # Pattern 2: Question-specific abolishment
+            elif re.search(r'別添[０-９0-9１-９]*の問\s*[０-９0-9１-９]+[^。]*(は廃止|については廃止|については、廃止)', sentence):
+                # Clean up the sentence start
+                cleaned = sentence
+                for prefix in ['なお、これに伴い、', 'これに伴い、', 'なお、']:
+                    if prefix in sentence:
+                        idx = sentence.index(prefix)
+                        cleaned = sentence[idx:]
+                        break
+                
+                key = (page_num + 1, cleaned[-100:])
+                if key not in seen_statements:
+                    statements.append({
+                        '原文': cleaned,
+                        '別添': current_betten,
+                        '頁': page_num + 1
+                    })
+                    seen_statements.add(key)
+    
+    return statements
 
 
 def extract_items(pdf, start_page=1):
@@ -297,6 +359,11 @@ def parse(pdf_path):
     pdf = pdfplumber.open(pdf_path)
     
     metadata = extract_metadata(pdf)
+    haishi_statements = extract_haishi_statements(pdf)
+    
+    # Add haishi statements to metadata if any
+    if haishi_statements:
+        metadata["廃止"] = haishi_statements
     
     # Determine start page (skip 介護保険最新情報 cover if present)
     start_page = 1

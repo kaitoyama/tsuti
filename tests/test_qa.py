@@ -51,8 +51,26 @@ def test_q2_疑義解釈その2():
     assert meta["発出元"] and "厚生労働省" in meta["発出元"], f"Issuer should contain '厚生労働省', got '{meta.get('発出元')}'"
     assert meta["件名"] and "疑義解釈" in meta["件名"], f"Subject should contain '疑義解釈', got '{meta.get('件名')}'"
     
-    # Check 廃止 field is present (Q2 mentions abolishing previous version)
-    assert meta.get("廃止"), "Q2 should have a 廃止 field"
+    # Check 廃止 field is present and has 11 entries
+    assert "廃止" in meta, "Q2 should have a 廃止 field"
+    assert isinstance(meta["廃止"], list), f"廃止 should be a list, got {type(meta['廃止'])}"
+    
+    haishi_count = len(meta["廃止"])
+    if haishi_count != 11:
+        print(f"\n⚠ Expected 11 廃止 entries, found {haishi_count}:")
+        for i, stmt in enumerate(meta["廃止"], 1):
+            print(f"  {i}. Page {stmt['頁']}, 別添={stmt['別添']}")
+            print(f"     {stmt['原文'][:80]}...")
+    
+    assert haishi_count == 11, f"Expected 11 廃止 entries, got {haishi_count}"
+    
+    # Check structure of first entry
+    first_haishi = meta["廃止"][0]
+    assert "原文" in first_haishi, "廃止 entry should have 原文"
+    assert "別添" in first_haishi, "廃止 entry should have 別添"
+    assert "頁" in first_haishi, "廃止 entry should have 頁"
+    assert isinstance(first_haishi["原文"], str), "原文 should be a string"
+    assert isinstance(first_haishi["頁"], int), "頁 should be an int"
     
     # 2. Every item has a non-empty 答
     for i, item in enumerate(items):
@@ -101,7 +119,7 @@ def test_q2_疑義解釈その2():
         assert duplicates == [('別添５', '問４')], f"Expected only known duplicate ('別添５', '問４'), got {duplicates}"
         print(f"  ⚠ Found known source PDF duplicate: 別添５ has two 問４ (pages 83 and 84)")
     
-    print(f"✓ Q2: {len(items)} items, {len(betten_groups)} 別添 groups")
+    print(f"✓ Q2: {len(items)} items, {len(betten_groups)} 別添 groups, {haishi_count} 廃止 statements")
     
     # Return per-別添 counts for reporting
     return {betten: len(q_nums) for betten, q_nums in betten_groups.items()}
