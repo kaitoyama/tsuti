@@ -114,6 +114,25 @@ def extract_haishi_statements(pdf):
     """
     statements = []
     seen_statements = set()  # To avoid duplicates from overlapping regex matches
+    
+    # First pass: find where the first explicit 別添 marker appears
+    first_explicit_betten = None
+    first_explicit_page = None
+    for page_num, page in enumerate(pdf.pages):
+        if page_num == 0:  # Skip cover page
+            continue
+        text = page.extract_text() or ""
+        for line in text.split('\n'):
+            betten_match = re.match(r'^[（(]別添([０-９0-9１-９]+)[）)]', line.strip())
+            if betten_match:
+                num = int(betten_match.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789')))
+                first_explicit_betten = num
+                first_explicit_page = page_num
+                break
+        if first_explicit_betten:
+            break
+    
+    # Second pass: extract statements with proper 別添 tracking
     current_betten = None
     
     for page_num, page in enumerate(pdf.pages):
@@ -121,10 +140,17 @@ def extract_haishi_statements(pdf):
         
         # Track which 別添 we're in
         for line in text.split('\n'):
-            betten_match = re.match(r'^[（(]?別添([０-９0-9１-９]+)[）)]?', line.strip())
+            betten_match = re.match(r'^[（(]別添([０-９0-9１-９]+)[）)]', line.strip())
             if betten_match:
-                num = betten_match.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+                num = int(betten_match.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789')))
                 current_betten = f"別添{num}"
+        
+        # Determine effective 別添 for this page
+        effective_betten = current_betten
+        if page_num > 0 and effective_betten is None and first_explicit_betten and first_explicit_betten > 1:
+            # This page is before the first explicit 別添 marker, so assign implicit 別添(N-1)
+            if page_num < first_explicit_page:
+                effective_betten = f"別添{first_explicit_betten - 1}"
         
         # Join lines for this page to capture multi-line statements
         full_text = ' '.join(text.split('\n'))
@@ -156,7 +182,7 @@ def extract_haishi_statements(pdf):
                 if key not in seen_statements:
                     statements.append({
                         '原文': cleaned,
-                        '別添': current_betten if page_num > 0 else None,
+                        '別添': effective_betten if page_num > 0 else None,  # Cover page always None
                         '頁': page_num + 1
                     })
                     seen_statements.add(key)
@@ -175,7 +201,7 @@ def extract_haishi_statements(pdf):
                 if key not in seen_statements:
                     statements.append({
                         '原文': cleaned,
-                        '別添': current_betten,
+                        '別添': effective_betten,
                         '頁': page_num + 1
                     })
                     seen_statements.add(key)

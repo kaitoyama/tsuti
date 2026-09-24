@@ -36,6 +36,15 @@ def test_q1_疑義解釈その12():
         assert q_num not in betten_groups[betten], f"Duplicate {q_num} in {betten}"
         betten_groups[betten].append(q_num)
     
+    # Q1 should have exactly 22 items (including space-pattern questions)
+    assert len(items) == 22, f"Expected 22 items, got {len(items)}"
+    
+    # Check that space-pattern questions are present
+    all_q_nums = [item['問番号'] for item in items]
+    assert '問 10' in all_q_nums, "問 10 (with space) should be present"
+    assert '問 13' in all_q_nums, "問 13 (with space) should be present"
+    assert '問 14' in all_q_nums, "問 14 (with space) should be present"
+    
     print(f"✓ Q1: {len(items)} items, {len(betten_groups)} 別添 groups")
     return len(items)
 
@@ -71,6 +80,18 @@ def test_q2_疑義解釈その2():
     assert "頁" in first_haishi, "廃止 entry should have 頁"
     assert isinstance(first_haishi["原文"], str), "原文 should be a string"
     assert isinstance(first_haishi["頁"], int), "頁 should be an int"
+    
+    # Check 別添 tracking: only page 1 (cover) should be null
+    null_haishi = [h for h in meta["廃止"] if h["別添"] is None]
+    assert len(null_haishi) == 1, f"Expected exactly 1 null 別添 (cover page), got {len(null_haishi)}"
+    assert null_haishi[0]["頁"] == 1, f"Null 別添 should be on page 1, got page {null_haishi[0]['頁']}"
+    
+    # Check page 22 entry (問68 answer) has 別添１
+    page22_haishi = [h for h in meta["廃止"] if h["頁"] == 22]
+    assert len(page22_haishi) == 1, f"Expected 1 廃止 entry on page 22, got {len(page22_haishi)}"
+    assert page22_haishi[0]["別添"] is not None, "Page 22 廃止 should have a 別添"
+    assert "別添1" in page22_haishi[0]["別添"] or "別添１" in page22_haishi[0]["別添"], \
+        f"Page 22 廃止 should be in 別添１, got {page22_haishi[0]['別添']}"
     
     # 2. Every item has a non-empty 答
     for i, item in enumerate(items):
