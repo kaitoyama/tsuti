@@ -64,6 +64,13 @@ def extract_metadata(pdf):
     text = text0
     lines = [l.strip() for l in text.split("\n")]
     
+    # Extract expected 別添 count from body text (e.g., "別添１から別添６までのとおり")
+    betten_range_match = re.search(r"別添([０-９0-9１-９]+)から別添([０-９0-9１-９]+)まで", text)
+    if betten_range_match:
+        start_num = betten_range_match.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+        end_num = betten_range_match.group(2).translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+        meta["_expected_betten_count"] = int(end_num) - int(start_num) + 1
+    
     # Find 事務連絡 line
     jimu_idx = None
     for i, line in enumerate(lines):
@@ -257,14 +264,27 @@ def extract_items(pdf, start_page=1):
         
         i += 1
     
-    # Post-process: infer 別添１ for items without explicit 別添
-    # If we have items with 別添２+, then items without 別添 should be 別添１
-    has_explicit_betten = any(item.get("別添") for item in items)
+    # Post-process: assign implicit 別添 to items without explicit 別添
+    # Strategy: questions before the first explicit 別添N get assigned 別添(N-1)
+    # Find first explicit 別添
+    first_explicit_betten = None
+    first_explicit_idx = None
+    for i, item in enumerate(items):
+        if item.get("別添"):
+            # Extract number from 別添N
+            match = re.search(r"別添([０-９0-9１-９]+)", item["別添"])
+            if match:
+                num = int(match.group(1).translate(str.maketrans('０１２３４５６７８９', '0123456789')))
+                first_explicit_betten = num
+                first_explicit_idx = i
+                break
     
-    if has_explicit_betten:
-        for item in items:
-            if not item.get("別添"):
-                item["別添"] = "別添１"
+    if first_explicit_betten is not None and first_explicit_betten > 1:
+        # Assign 別添(N-1) to all items before the first explicit 別添N
+        implicit_betten = f"別添{first_explicit_betten - 1}"
+        for i in range(first_explicit_idx):
+            if not items[i].get("別添"):
+                items[i]["別添"] = implicit_betten
     
     return items
 
@@ -291,6 +311,8 @@ def save(output_path, metadata, items):
     """Save to YAML"""
     # Build output dict with specific key order
     output = {}
+    expected_betten_count = metadata.pop("_expected_betten_count", None)
+    
     for key in ["種別", "番号", "日付", "発出元", "件名", "廃止"]:
         if key in metadata and metadata[key]:
             output[key] = metadata[key]
@@ -298,6 +320,30 @@ def save(output_path, metadata, items):
     
     with open(output_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(output, f, allow_unicode=True, sort_keys=False, width=200, default_flow_style=False)
+    
+    # Check for duplicates and warn
+    from collections import defaultdict, Counter
+    betten_groups = defaultdict(list)
+    for item in items:
+        betten = item.get("別添", "なし")
+        betten_groups[betten].append(item["問番号"])
+    
+    warnings = []
+    
+    # Check 別添 count
+    if expected_betten_count:
+        actual_betten_count = len([k for k in betten_groups.keys() if k != "なし"])
+        if actual_betten_count != expected_betten_count:
+            warnings.append(f"⚠ Expected {expected_betten_count} 別添 from body text, but extracted {actual_betten_count}")
+    
+    # Check for duplicates
+    for betten, q_nums in betten_groups.items():
+        q_counts = Counter(q_nums)
+        for q_num, count in q_counts.items():
+            if count > 1:
+                warnings.append(f"⚠ Duplicate {q_num} in {betten} ({count} instances - kept as-is from source)")
+    
+    return warnings
 
 
 if __name__ == "__main__":
@@ -308,7 +354,7 @@ if __name__ == "__main__":
     args = ap.parse_args()
     
     metadata, items = parse(args.pdf)
-    save(args.output, metadata, items)
+    warnings = save(args.output, metadata, items)
     
     print(f"Extracted {metadata.get('種別', 'Q&A')}:")
     print(f"  種別: {metadata.get('種別', '(未検出)')}")
@@ -319,4 +365,10 @@ if __name__ == "__main__":
     if metadata.get('廃止'):
         print(f"  廃止: {metadata.get('廃止', '')[:80]}...")
     print(f"  Items: {len(items)}")
+    
+    if warnings:
+        print()
+        for warning in warnings:
+            print(warning)
+    
     print(f"\nSaved to: {args.output}")
